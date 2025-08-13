@@ -1,0 +1,54 @@
+html {
+  font-family: 'Courier New', Courier, monospace;
+  background-color: #333;
+}
+
+.wrapper {
+  width: 600px;
+  background: white;
+  border-top: 5px solid greenyellow;
+  padding: 1em;
+  margin: 1em auto;
+  box-shadow: 0 5px 10px;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+.status {
+  display: inline;
+  margin: 1em;
+}
+
+textarea {
+  width: 100%;
+  padding: 0.7rem;
+  border: 1px solid gainsboro;
+  border-radius: 3px;
+  min-height: 20%;
+  margin-bottom: 1em;
+  box-sizing: border-box;
+}
+
+button {
+  border: none;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.9rem;
+  border-radius: 3px;
+  border-bottom: 1px solid black;
+  background: pink;
+  cursor: pointer;
+}
+
+button[type="submit"] {
+  background: lightgreen;
+}
+
+button:hover {
+  opacity: 0.7;
+}
+
+.form {
+  display: none;
+}
