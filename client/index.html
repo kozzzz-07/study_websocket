@@ -10,25 +10,45 @@
     <div class="wrapper">
       <h1>WebSockets Echo Demo</h1>
       <button type="submit" id="open_ws">Open WS</button>
-      <div class="status">Status: Not connected</div>
-      <ul></ul>
-      <form class="form">
+      <div id="status" class="status">Status: Not connected</div>
+      <ul id="table"></ul>
+      <form id="form" class="form">
         <textarea
-          name=""
-          id=""
+          name="message"
+          id="message"
           placeholder="Write your message here..."
           required
         ></textarea>
         <button type="submit">Send Message</button>
-        <button id="close">Close Connection</button>
+        <button id="close_ws">Close Connection</button>
       </form>
     </div>
     <script>
       const openWsBtn = document.getElementById("open_ws");
+      const closeWsBtn = document.getElementById("close_ws");
+      const form = document.getElementById("form");
+      const socketStatus = document.getElementById("status");
+      const table = document.getElementsByTagName("ul")[0];
+      const message = document.getElementById("message");
+
       openWsBtn.addEventListener("click", () => {
+        // 一回しかクリックできないようにするだけのコード
+        openWsBtn.disabled = true;
+        openWsBtn.style.background = "gray";
+        openWsBtn.style.pointerEvents = "none";
+        openWsBtn.textContent = "Button disabled";
+
+        // websocketサーバーと接続開始
         const url = "ws://127.0.0.1:8080";
         const socket = new WebSocket(url);
+        socketStatus.innerHTML = "Connecting ...";
         console.log(socket);
+
+        socket.onopen = (openEvent) => {
+          socketStatus.innerHTML = `Connected to: ${openEvent.currentTarget.url}`;
+          socketStatus.className = socketStatus.className + " open";
+          form.className = "show_form";
+        };
       });
     </script>
   </body>

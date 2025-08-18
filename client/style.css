@@ -52,3 +52,12 @@ button:hover {
 .form {
   display: none;
 }
+
+.show_form{
+  display: inline;
+}
+
+.open {
+  color: limegreen;
+  font-weight: bold;
+}
