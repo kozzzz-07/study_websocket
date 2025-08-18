@@ -23,5 +23,13 @@
         <button id="close">Close Connection</button>
       </form>
     </div>
+    <script>
+      const openWsBtn = document.getElementById("open_ws");
+      openWsBtn.addEventListener("click", () => {
+        const url = "ws://127.0.0.1:8080";
+        const socket = new WebSocket(url);
+        console.log(socket);
+      });
+    </script>
   </body>
 </html>

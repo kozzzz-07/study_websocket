@@ -1,6 +1,4 @@
 import http from "node:http";
-
-// bunと相性が悪いのか動かない
 import ws from "websocket";
 
 const WebSocketServer = ws.server;
@@ -28,7 +26,7 @@ let websocket = new WebSocketServer({
   autoAcceptConnections: false,
 });
 
-function isOriginAllowed(origin: string) {
+function isOriginAllowed(origin) {
   return true;
 }
 
@@ -53,7 +51,6 @@ websocket.on("request", (req) => {
         `Ping: Message received from client: ${message.binaryData}`
       );
     }
-    connection.close();
   });
 
   connection.on("close", (code, description) => {
