@@ -44,10 +44,18 @@
         socketStatus.innerHTML = "Connecting ...";
         console.log(socket);
 
+        // OPEN
         socket.onopen = (openEvent) => {
           socketStatus.innerHTML = `Connected to: ${openEvent.currentTarget.url}`;
           socketStatus.className = socketStatus.className + " open";
           form.className = "show_form";
+        };
+
+        // RECEIVE
+        socket.onmessage = (message) => {
+          // クライアントがサーバーからメッセージを受け取った場合にトリガーする
+          const msg = message.data;
+          table.innerHTML = "<li><span>Received:</span>" + msg + "</li>";
         };
       });
     </script>

@@ -61,3 +61,27 @@ button:hover {
   color: limegreen;
   font-weight: bold;
 }
+
+ul {
+  list-style: none;
+  padding: 0;
+  font-size: 0.9em;
+}
+
+ul li {
+  padding: 0.5em 1em;
+  border-bottom: 1px solid lightgray;
+}
+
+ul li:first-child {
+  border-top: 1px solid lightgray; ;
+}
+
+ul li span {
+  display:  inline-block;
+  width: 20%;
+  font-weight: bold;
+  color: gray;
+  font-size: 0.75em;
+  letter-spacing: 1px;
+}
