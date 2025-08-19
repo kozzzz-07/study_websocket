@@ -49,6 +49,7 @@
           socketStatus.innerHTML = `Connected to: ${openEvent.currentTarget.url}`;
           socketStatus.className = socketStatus.className + " open";
           form.className = "show_form";
+          console.log({ openEvent });
         };
 
         // RECEIVE
@@ -69,6 +70,32 @@
             "CLOSED" +
             "</li>";
           socket.innerHTML = "Disconnected from WebSockets";
+          form.className = "closed";
+        };
+
+        // ERROR
+        socket.onerror = (error) => {
+          // WebSocket接続でなんらかの問題が発生した際に発火する
+          // 多くの場合、onerrorの直後にoncloseイベントも発火する
+          // onopenイベントによって提供されるオブジェクトと同じ型
+          // typeがerror
+          // 実際、そこまでエラーについての情報は提供されないことが多く、oncloseを見た方が有用
+          // 発生例:
+          // - WebSocketハンドシェイク中のエラー
+          //   - 例:不正なHTTPヘッダー、プロトコルの不一致など
+          //   - onopenイベントが発火する前にonerrorが発火する
+          // - ネットワークエラー
+          //   - 例:クライアントがインターネット接続を失う
+          //   - onerrorイベントの後にoncloseイベントが発火する
+          // - サーバーからエラーフレームが送信された場合
+          //   - サーバーがエラーコード付きの特別なWebSocketフレームを送信すると、クライアント側でonerrorが発火する
+          // - サーバーが突然接続終了した場合
+          //   - サーバーが正規のCloseフレームを送信せずに接続を切ると、onerrorのみが発火する
+          // - クライアントライブラリやブラウザ内部エラー
+          //   - onerrorが発火
+
+          console.log(error);
+          socket.innerHTML = "Error.";
           form.className = "closed";
         };
       });
