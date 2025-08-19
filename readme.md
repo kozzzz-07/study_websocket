@@ -1,1 +1,11 @@
+## memo
+- WebSocket APIはとてもシンプルな設計
+  - WebSocketでリッスンできる4つのイベント
+    - open
+    - message
+    - error
+    - close
+  - 利用できる2つのメソッド
+    - send
+    - close
 - https://triple-underscore.github.io/WebSocket-ja.html
