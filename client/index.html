@@ -20,7 +20,7 @@
           required
         ></textarea>
         <button type="submit">Send Message</button>
-        <button id="close_ws">Close Connection</button>
+        <button id="close_ws" type="button">Close Connection</button>
       </form>
     </div>
     <script>
@@ -41,11 +41,18 @@
         // websocketサーバーと接続開始
         const url = "ws://127.0.0.1:8080";
         const socket = new WebSocket(url);
+
+        // 0:CONNECTING WebSocket接続を開始した直後、まだ確立されていない接続
+        // 1:OPEN 接続が開かれ、通信できる状態
+        // 2:CLOSING 接続を閉じる処理中
+        // 3;CLOSED 接続が完全に閉じられた状態
+        console.log(`SOCKET CONNECTING STATUS IS: ${socket.readyState}`); // ここでは0が表示される
+
         socketStatus.innerHTML = "Connecting ...";
-        console.log(socket);
 
         // OPEN
         socket.onopen = (openEvent) => {
+          console.log(`SOCKET CONNECTING STATUS IS: ${socket.readyState}`);
           socketStatus.innerHTML = `Connected to: ${openEvent.currentTarget.url}`;
           socketStatus.className = socketStatus.className + " open";
           form.className = "show_form";
@@ -61,16 +68,18 @@
 
         // CLOSE
         socket.onclose = (closeEvent) => {
+          console.log(`SOCKET CONNECTING STATUS IS: ${socket.readyState}`); // 3
           // クライアント・サーバーのどちらから接続を閉じても必ず発火する
           // クラアントが「Closeフレーム」を送信・受信した後に発火する
-          // code: 接続を閉じた側が設定する終了コード reason: 接続が閉じた理由 wasClean: true、両者がCloseクレームを交換した場合（正常終了）false、異常終了
+          console.log({ closeEvent });
+          // 便利なプロパティ code: 接続を閉じた側が設定する終了コード reason: 接続が閉じた理由 wasClean: true、両者がCloseクレームを交換した場合（正常終了）false、異常終了
           console.log(closeEvent.code, closeEvent.reason, closeEvent.wasClean);
           table.innerHTML +=
             '<li class="received, closed"><span>CLOSED:</span>' +
             "CLOSED" +
             "</li>";
-          socket.innerHTML = "Disconnected from WebSockets";
-          form.className = "closed";
+          socketStatus.innerHTML = "Disconnected from WebSockets";
+          form.className = "form closed";
         };
 
         // ERROR
@@ -93,11 +102,24 @@
           //   - サーバーが正規のCloseフレームを送信せずに接続を切ると、onerrorのみが発火する
           // - クライアントライブラリやブラウザ内部エラー
           //   - onerrorが発火
+          // closeイベントから返されるエラー情報も曖昧な内容となっている。理由はセキュリティ上あえてそういう設計になっているため。
+          // https://websockets.spec.whatwg.org/#feedback-from-the-protocol
 
           console.log(error);
           socket.innerHTML = "Error.";
           form.className = "closed";
         };
+
+        closeWsBtn.addEventListener("click", () => {
+          socket.close();
+          console.log(`SOCKET CONNECTING STATUS IS: ${socket.readyState}`); // 2
+
+          // form.className = "";
+          openWsBtn.disabled = false;
+          openWsBtn.style.background = "";
+          openWsBtn.style.pointerEvents = "";
+          openWsBtn.textContent = "Open WS";
+        });
       });
     </script>
   </body>
