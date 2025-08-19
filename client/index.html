@@ -53,9 +53,23 @@
 
         // RECEIVE
         socket.onmessage = (message) => {
-          // クライアントがサーバーからメッセージを受け取った場合にトリガーする
+          // クライアントがサーバーからメッセージを受け取った場合に発火する
           const msg = message.data;
           table.innerHTML = "<li><span>Received:</span>" + msg + "</li>";
+        };
+
+        // CLOSE
+        socket.onclose = (closeEvent) => {
+          // クライアント・サーバーのどちらから接続を閉じても必ず発火する
+          // クラアントが「Closeフレーム」を送信・受信した後に発火する
+          // code: 接続を閉じた側が設定する終了コード reason: 接続が閉じた理由 wasClean: true、両者がCloseクレームを交換した場合（正常終了）false、異常終了
+          console.log(closeEvent.code, closeEvent.reason, closeEvent.wasClean);
+          table.innerHTML +=
+            '<li class="received, closed"><span>CLOSED:</span>' +
+            "CLOSED" +
+            "</li>";
+          socket.innerHTML = "Disconnected from WebSockets";
+          form.className = "closed";
         };
       });
     </script>

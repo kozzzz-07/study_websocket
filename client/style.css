@@ -62,6 +62,11 @@ button:hover {
   font-weight: bold;
 }
 
+.closed {
+  color: deeppink;
+  font-weight: bold;
+}
+
 ul {
   list-style: none;
   padding: 0;
