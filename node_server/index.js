@@ -53,9 +53,9 @@ websocket.on("request", (req) => {
     }
   });
 
-  connection.on("close", (code, description) => {
+  connection.on("close", (code, reason) => {
     console.log(
-      `Peer connection ${connection.remoteAddress} disconnected. The reason is ${description} and the closure code is ${code}`
+      `Peer connection ${connection.remoteAddress} disconnected. The reason is ${reason} and the closure code is ${code}`
     );
   });
 });

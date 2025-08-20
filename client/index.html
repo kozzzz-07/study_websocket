@@ -117,8 +117,12 @@
           form.className = "closed";
         };
 
+        // CLOSE METHOD
         closeWsBtn.addEventListener("click", () => {
-          socket.close();
+          // socket.close();
+          // サーバー側に理由を送ることも可能
+          socket.close(1000, "I don't like you");
+
           console.log(`SOCKET CONNECTING STATUS IS: ${socket.readyState}`); // 2
 
           // form.className = "";
