@@ -81,12 +81,37 @@
           console.log({ closeEvent });
           // 便利なプロパティ code: 接続を閉じた側が設定する終了コード reason: 接続が閉じた理由(セキュリティ上の理由で最大123文字制限あり) wasClean: true、両者がCloseクレームを交換した場合（正常終了）false、異常終了
           console.log(closeEvent.code, closeEvent.reason, closeEvent.wasClean);
-          table.innerHTML +=
-            '<li class="received, closed"><span>CLOSED:</span>' +
-            "CLOSED" +
-            "</li>";
-          socketStatus.innerHTML = "Disconnected from WebSockets";
+
           form.className = "form closed";
+
+          switch (closeEvent.code) {
+            case 1006:
+              // サーバーへ接続失敗
+              socketStatus.innerHTML = "No go my friend";
+              table.innerHTML +=
+                '<li class="received, closed"><span>ERROR:</span>' +
+                "Something is wrong with your connection" +
+                "</li>";
+              break;
+
+            case 1001:
+              socketStatus.innerHTML = `Disconnected: ${closeEvent.reason}`;
+              table.innerHTML = "";
+              break;
+            default:
+              socketStatus.innerHTML = "You disconnected from WebSockets.";
+              table.innerHTML +=
+                '<li class="received, closed"><span>CLOSED:</span>' +
+                "YOU CLOSED THE CONNECTION" +
+                "</li>";
+              break;
+          }
+
+          // ボタンの活性化
+          openWsBtn.disabled = false;
+          openWsBtn.style.background = "";
+          openWsBtn.style.pointerEvents = "";
+          openWsBtn.textContent = "Open WS";
         };
 
         // ERROR

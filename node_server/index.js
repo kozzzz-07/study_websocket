@@ -43,6 +43,19 @@ websocket.on("request", (req) => {
 
   connection.on("message", (message) => {
     if (message.type === "utf8") {
+      // サーバー側からcloseする場合
+      if (message.utf8Data === "bye") {
+        setTimeout(() => {
+          connection.send(
+            `Thanks for your message saying: ${message.utf8Data}, but I don't want to talk to you ... bye bye`
+          );
+        }, 1000);
+        setTimeout(() => {
+          connection.close(1001, "server shut you down");
+        }, 5000);
+        return;
+      }
+
       connection.send(
         `Ping: Message received from client: ${message.utf8Data}`
       );

@@ -8,4 +8,14 @@
   - 利用できる2つのメソッド
     - send
     - close
-- https://triple-underscore.github.io/WebSocket-ja.html
+- WebSocketプロトコル
+  - どのようにクライアントとサーバーが通信すべきか
+  - https://datatracker.ietf.org/doc/html/rfc6455
+    - https://tex2e.github.io/rfc-translater/html/rfc6455.html
+  - https://datatracker.ietf.org/doc/html/rfc8441
+    - https://tex2e.github.io/rfc-translater/html/rfc8441.html
+  - https://datatracker.ietf.org/doc/html/rfc9220
+    - https://tex2e.github.io/rfc-translater/html/rfc9220.html
+- WebSocket API
+  - プロトコルを実装上どう扱うかを標準化した資料
+  - https://triple-underscore.github.io/WebSocket-ja.html
