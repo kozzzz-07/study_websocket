@@ -90,3 +90,7 @@ ul li span {
   font-size: 0.75em;
   letter-spacing: 1px;
 }
+
+.sent {
+  background-color: whitesmoke;
+}

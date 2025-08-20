@@ -70,7 +70,7 @@
           // クライアントがサーバーからメッセージを受け取った場合に発火する
           // プロパティ data: 文字列、Blob、ArrayBufferのいずれか origin:メッセージ送信元
           const msg = message.data;
-          table.innerHTML = "<li><span>Received:</span>" + msg + "</li>";
+          table.innerHTML += "<li><span>Received:</span>" + msg + "</li>";
         };
 
         // CLOSE
@@ -126,6 +126,20 @@
           openWsBtn.style.background = "";
           openWsBtn.style.pointerEvents = "";
           openWsBtn.textContent = "Open WS";
+        });
+
+        // SEND METHOD
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+          // すでに閉じられた可能性のある古いソケットでの送信をしないようにする
+          if (socket.readyState === 1) {
+            const userText = message.value;
+            socket.send(userText);
+
+            table.innerHTML +=
+              '<li class="sent"><span>SENT:</span>' + userText + "</li>";
+            message.value = "";
+          }
         });
       });
     </script>
