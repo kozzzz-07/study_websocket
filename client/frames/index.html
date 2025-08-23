@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div class="buttons-container">
+      <button id="get-button">GET Request (HTTP)</button>
+      <span id="get-response" class="response"></span>
+      <br />
+      <button id="ws-button">WS Request</button>
+      <span id="ws-response" class="response"></span>
+    </div>
+    <script>
+      // GET Request
+      const getButton = document.getElementById("get-button");
+      const getResponse = document.getElementById("get-response");
+
+      getButton.addEventListener("click", async () => {
+        try {
+          const response = await fetch("http://localhost:8080/hello");
+          const data = await response.text(); // readablestream body
+          getResponse.textContent = data;
+        } catch (error) {
+          console.error(error);
+        }
+      });
+
+      // WS Request
+      const wsButton = document.getElementById("ws-button");
+      const wsResponse = document.getElementById("ws-response");
+
+      wsButton.addEventListener("click", async () => {
+        try {
+          const socket = new WebSocket("ws://localhost:8080");
+
+          socket.addEventListener("open", () => {
+            console.log("Websocket connection established");
+          });
+          socket.addEventListener("message", (event) => {
+            console.log("message");
+            wsResponse.textContent = event.data;
+          });
+          socket.addEventListener("close", () => {
+            console.log("Websocket connection closed");
+          });
+        } catch (error) {
+          console.error(error);
+        }
+      });
+    </script>
+  </body>
+</html>
