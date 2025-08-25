@@ -18,9 +18,23 @@ const server = http.createServer((req, res) => {
 // mount websocket server onto http server
 const socket = new WebSocketServer({ server });
 
+function heartbeat() {
+  this.isClientAlive = true;
+}
+
 // handle ws connection request
 socket.on("connection", (ws) => {
+  ws.isClientAlive = true;
+  ws.on("pong", heartbeat);
+
   console.log("WebSocket client connected");
+
+  // send a ping every 10 seconds
+  setInterval(() => {
+    if (ws.isClientAlive === false) return ws.terminate();
+    ws.isClientAlive = false;
+    ws.ping();
+  }, 10000);
 
   ws.on("message", (message) => {
     console.log(`Received message: ${message}`);
@@ -28,7 +42,7 @@ socket.on("connection", (ws) => {
 
   ws.send("hello");
   // immediately close ws connection
-  ws.close();
+  // ws.close();
 
   ws.on("close", () => {
     console.log("WebSocket client disconnected");

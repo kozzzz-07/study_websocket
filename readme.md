@@ -19,3 +19,17 @@
 - WebSocket API
   - プロトコルを実装上どう扱うかを標準化した資料
   - https://triple-underscore.github.io/WebSocket-ja.html
+
+
+## test
+### 1
+- `cd node_server`
+- `node index.js`
+- `cd client`
+- index.htmlを適当にローカルで動かす
+
+### 2
+- `cd node_server/frames`
+- `node app.js`
+- `cd client/frames`
+- index.htmlを適当にローカルで動かす
