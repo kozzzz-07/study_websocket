@@ -1,0 +1,2 @@
+- test run
+  - `node --import=tsx index.ts`
