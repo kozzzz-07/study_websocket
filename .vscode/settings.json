@@ -1,0 +1,8 @@
+{
+  "liveServer.settings.https": {
+    "enable": true,
+    "cert": "/your-dir/client/oreore_cert/cert.crt",
+    "key": "/your-dir/client/oreore_cert/cert.key",
+    "passphrase": ""
+  }
+}

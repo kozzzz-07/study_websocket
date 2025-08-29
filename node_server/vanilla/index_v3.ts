@@ -1,5 +1,8 @@
-import http from "node:http";
+// https対応
+import https from "node:https";
+import type { IncomingMessage } from "node:http";
 import stream from "node:stream";
+import fs from "node:fs";
 
 import * as CONSTANTS from "./lib/websocket_constants.ts";
 import {
@@ -8,18 +11,24 @@ import {
   isOriginAllowed,
 } from "./lib/websocket_methods.ts";
 
-const http_server = http.createServer((req, res) => {
-  // ws:// へのリクエストの場合、以下のコードは実行されない
-  // 代わりに、そのリクエストは upgrade イベントリスナーに渡される
-  // もし 'upgrade' イベントリスナーが存在しない場合は、エラーがスローされる
-  res.writeHead(200);
-  res.end(
-    'Hello, I hope you enjoy the "under-the-hood" WebSocket implementation'
-  );
-});
+const serverKey = fs.readFileSync("./oreore_cert/cert.key");
+const serverCert = fs.readFileSync("./oreore_cert/cert.crt");
 
-http_server.listen(CONSTANTS.PORT, () => {
-  console.log(`The http server is listening on port. ${CONSTANTS.PORT}`);
+const https_server = https.createServer(
+  { key: serverKey, cert: serverCert },
+  (req, res) => {
+    // ws:// へのリクエストの場合、以下のコードは実行されない
+    // 代わりに、そのリクエストは upgrade イベントリスナーに渡される
+    // もし 'upgrade' イベントリスナーが存在しない場合は、エラーがスローされる
+    res.writeHead(200);
+    res.end(
+      'Hello, I hope you enjoy the "under-the-hood" WebSocket implementation'
+    );
+  }
+);
+
+https_server.listen(CONSTANTS.PORT, () => {
+  console.log(`The https server is listening on port. ${CONSTANTS.PORT}`);
 });
 
 CONSTANTS.CUSTOM_ERRORS.forEach((errorEvents) => {
@@ -33,7 +42,7 @@ CONSTANTS.CUSTOM_ERRORS.forEach((errorEvents) => {
 });
 
 // https://nodejs.org/docs/latest/api/http.html#event-upgrade_1
-http_server.on("upgrade", (req, socket, head) => {
+https_server.on("upgrade", (req, socket, head) => {
   // req http requestの中身
   // socket アップグレート後、socketオブジェクトが今後のWS通信の全てに使われる。
   // head 通常空
@@ -65,7 +74,7 @@ http_server.on("upgrade", (req, socket, head) => {
 });
 
 function upgradeConnection(
-  req: http.IncomingMessage,
+  req: IncomingMessage,
   socket: stream.Duplex,
   head: Buffer
 ) {

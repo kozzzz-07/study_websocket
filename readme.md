@@ -33,3 +33,9 @@
 - `node app.js`
 - `cd client/frames`
 - index.htmlを適当にローカルで動かす
+
+
+## 自己証明書生成
+- `npx mkcert create-ca`
+- `npx mkcert create-cert`
+- クライアント側は `.vscode`の`liveServer.settings.https`のパスを修正する
