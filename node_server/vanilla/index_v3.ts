@@ -1,8 +1,9 @@
 // https対応
 import https from "node:https";
 import type { IncomingMessage } from "node:http";
-import stream from "node:stream";
+import type stream from "node:stream";
 import fs from "node:fs";
+import type net from "node:net";
 
 import * as CONSTANTS from "./lib/websocket_constants.ts";
 import {
@@ -13,6 +14,17 @@ import {
 
 const serverKey = fs.readFileSync("./oreore_cert/cert.key");
 const serverCert = fs.readFileSync("./oreore_cert/cert.crt");
+
+// 受信したデータ（チャンク）に対しての、解析ステップ管理用フラグ
+// https://datatracker.ietf.org/doc/html/rfc6455#section-5.2
+// ヘッダー
+const GET_INFO = 1; // 最初の2バイト
+const GET_LENGTH = 2; //  Payload len ~ Extended payload length continued, if payload len まで
+const GET_MASK_KEY = 3; // Masking-key
+// ペイロード
+const GET_PAYLOAD = 4; // Payload Data 以降
+// プログラム固有のフラグ
+const SEND_ECHO = 5;
 
 const https_server = https.createServer(
   { key: serverKey, cert: serverCert },
@@ -88,7 +100,35 @@ function upgradeConnection(
   startWebSocketConnection(socket);
 }
 
+// *** WEBSOCKET SERVER LOGIC
 function startWebSocketConnection(socket: stream.Duplex) {
-  // データを送るためには、データフレームとして構造化する必要がある
+  // データを送るためには、データフレームとして構造化する必要がある。例えばここで以下のコードはNG.
   // socket.write("hello"); // これはダメ
+
+  // socketはstream.Duplex型だが、net.Socketが渡される。net.Socketはstream.Duplexのサブクラス。
+  // https://nodejs.org/api/http.html#event-upgrade
+  // > This event is guaranteed to be passed an instance of the <net.Socket> class, a subclass of <stream.Duplex>, unless the user specifies a socket type other than <net.Socket>.
+
+  // WS接続があることをターミナルに通知する
+  // ポートはTCP接続のたびに、クライアントCPUによってランダムに生成される
+  console.log(
+    `WS CONNECTION ESTABLISHED WITH CLIENT PORT: ${
+      (socket as net.Socket).remotePort // ダウンキャスト
+    }`
+  );
+
+  // receiverは全ての受信データを処理する。インスタンスは1つだけ。
+  const receiver = new WebSocketReceiver(socket);
+
+  // https://nodejs.org/api/net.html#event-data
+  // > The data will be lost if there is no listener when a Socket emits a 'data' event.
+  // サーバー側でリッスンしてなければ破棄される。
+  socket.on("data", (chunk) => {
+    console.log("chunk received");
+    // receiver.processBuffer(chunk);
+  });
+
+  socket.on("end", () => {
+    console.log("there will be bo more data. The WS connection is closed.");
+  });
 }

@@ -19,6 +19,8 @@
 - WebSocket API
   - プロトコルを実装上どう扱うかを標準化した資料
   - https://triple-underscore.github.io/WebSocket-ja.html
+- Node.js Doc
+  - https://nodejs.org/api/process.html
 
 
 ## test
@@ -35,7 +37,19 @@
 - index.htmlを適当にローカルで動かす
 
 
-## 自己証明書生成
+## 自己証明書生成＆ローカルHTTPS設定
 - `npx mkcert create-ca`
 - `npx mkcert create-cert`
-- クライアント側は `.vscode`の`liveServer.settings.https`のパスを修正する
+- クライアント側
+  - `client`配下の`oreore_cert`に自己照明を配置
+  - `.vscode`の`liveServer.settings.https`のパスを修正する
+  - liveServerを起動する
+- サーバー側
+  - `vanilla`配下の`oreore_cert`に自己照明を配置
+  - `node --import=tsx index_v3.ts`
+
+## 素WSの確認
+- `vanilla/index_v3.ts`
+  - https化の対応必要
+    - 「自己証明書生成＆ローカルHTTPS設定」参考
+    - これ以外は対応いらない
