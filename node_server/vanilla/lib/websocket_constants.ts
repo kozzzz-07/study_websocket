@@ -22,3 +22,6 @@ export const ALLOWED_ORIGINS = [
   "null", // ブラウザで直接htmlファイルを表示した場合
 ];
 export const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+// WebSocket ルール
+export const MIN_FRAME_SIZE = 2; // 2バイト

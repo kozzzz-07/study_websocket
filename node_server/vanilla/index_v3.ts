@@ -132,3 +132,63 @@ function startWebSocketConnection(socket: stream.Duplex) {
     console.log("there will be bo more data. The WS connection is closed.");
   });
 }
+
+class WebSocketReceiver {
+  private _socket: stream.Duplex;
+  private _buffersArray: any[] = []; // 受信したデータのチャンクを格納する配列
+  private _bufferedBytesLength = 0; // 受信した各チャンク後のカスタムバッファ内の総バイト数を追跡する
+  private _taskLoop = false;
+  private _task = GET_INFO;
+
+  constructor(socket: stream.Duplex) {
+    this._socket = socket;
+  }
+
+  processBuffer(chunk: any) {
+    this._buffersArray.push(chunk);
+    this._bufferedBytesLength += chunk.length;
+    this._startTaskLoop();
+  }
+
+  _startTaskLoop() {
+    this._taskLoop = true;
+
+    do {
+      switch (this._task) {
+        case GET_INFO:
+          this._getInfo();
+          break;
+      }
+    } while (this._taskLoop);
+  }
+
+  private _getInfo() {
+    const infoBuffer = this._consumeHeaders(CONSTANTS.MIN_FRAME_SIZE);
+    const firstByte = infoBuffer[0];
+    const secondByte = infoBuffer[1];
+  }
+
+  private _consumeHeaders(n: number) {
+    // バッファのバイト長を、消費するバイト数分だけ減らす
+    this._bufferedBytesLength -= n;
+
+    // 抽出したサイズが実際のバッファと同じ場合は、バッファ全体を返す
+    if (n === this._buffersArray[0].length) {
+      return this._buffersArray.shift();
+    }
+
+    // 抽出したサイズがバッファ内のデータサイズより小さい場合
+    if (n < this._buffersArray[0].length) {
+      // 一時的なバッファを作成
+      const infoBuffer = this._buffersArray[0];
+      // 消費したバッファを削除
+      this._buffersArray[0] = this._buffersArray[0].slice(n);
+      // 一時的なバッファを削除（nには2しか入らない想定）
+      return infoBuffer.slice(0, n);
+    } else {
+      throw new Error(
+        "You can not extract more data from a ws frame than the actual frame size."
+      );
+    }
+  }
+}
