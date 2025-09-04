@@ -52,4 +52,4 @@
 - `vanilla/index_v3.ts`
   - https化の対応必要
     - 「自己証明書生成＆ローカルHTTPS設定」参考
-    - これ以外は対応いらない
+    - index_v3.ts以外を動かす時はHTTPS対応いらない
