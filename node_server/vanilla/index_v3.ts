@@ -12,8 +12,8 @@ import {
   isOriginAllowed,
 } from "./lib/websocket_methods.ts";
 
-const serverKey = fs.readFileSync("./oreore_cert/cert.key");
-const serverCert = fs.readFileSync("./oreore_cert/cert.crt");
+const serverKey = fs.readFileSync("./vanilla/oreore_cert/cert.key");
+const serverCert = fs.readFileSync("./vanilla/oreore_cert/cert.crt");
 
 // 受信したデータ（チャンク）に対しての、解析ステップ管理用フラグ
 // https://datatracker.ietf.org/doc/html/rfc6455#section-5.2
@@ -123,9 +123,10 @@ function startWebSocketConnection(socket: stream.Duplex) {
   // https://nodejs.org/api/net.html#event-data
   // > The data will be lost if there is no listener when a Socket emits a 'data' event.
   // サーバー側でリッスンしてなければ破棄される。
-  socket.on("data", (chunk) => {
+  socket.on("data", (chunk: Buffer) => {
+    // dataで受け取るデータは常にバッファが流れてくる
     console.log("chunk received");
-    // receiver.processBuffer(chunk);
+    receiver.processBuffer(chunk);
   });
 
   socket.on("end", () => {
@@ -135,16 +136,20 @@ function startWebSocketConnection(socket: stream.Duplex) {
 
 class WebSocketReceiver {
   private _socket: stream.Duplex;
-  private _buffersArray: any[] = []; // 受信したデータのチャンクを格納する配列
+  private _buffersArray: Buffer[] = []; // 受信したデータのチャンクを格納する配列
   private _bufferedBytesLength = 0; // 受信した各チャンク後のカスタムバッファ内の総バイト数を追跡する
   private _taskLoop = false;
   private _task = GET_INFO;
+  private _fin = false; // メッセージの最後のフラグメントが受信したかどうか
+  private _opcode: number | undefined = undefined; // 受信データの種類
+  private _masked = false; // 受信フレームがマスクされているかどうか
+  private _initialPayloadSizeIndicator = 0; // 処理中のペイロードのサイズインジケーター
 
   constructor(socket: stream.Duplex) {
     this._socket = socket;
   }
 
-  processBuffer(chunk: any) {
+  processBuffer(chunk: Buffer) {
     this._buffersArray.push(chunk);
     this._bufferedBytesLength += chunk.length;
     this._startTaskLoop();
@@ -163,9 +168,35 @@ class WebSocketReceiver {
   }
 
   private _getInfo() {
+    // 必須ヘッダーの最初の２バイトへの処理
+    /**
+      0                   1                   2                   3
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     +-+-+-+-+-------+-+-------------+-------------------------------+
+     |F|R|R|R| opcode|M| Payload len |    Extended payload length    |
+     |I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |
+     |N|V|V|V|       |S|             |   (if payload len==126/127)   |
+     | |1|2|3|       |K|             |                               |
+     +-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
+    */
+
     const infoBuffer = this._consumeHeaders(CONSTANTS.MIN_FRAME_SIZE);
     const firstByte = infoBuffer[0];
     const secondByte = infoBuffer[1];
+
+    // 抽出
+    this._fin = (firstByte & 0b10000000) === 0b10000000; // FIX bit (0x80 hex)
+    this._opcode = firstByte & 0b00001111; // Opcode (0x0F hex)
+    this._masked = (secondByte & 0b10000000) === 0b10000000; // Masked bit (0x80 hex)
+    this._initialPayloadSizeIndicator = secondByte & 0b01111111; // Payload length (0x7F hex)
+
+    // クライアントから送信されるデータは必ずマスクされている必要がある
+    if (!this._masked) {
+      // TODO: エラーではなく、クローズフレームを返すようにする
+      throw new Error("Mask is not set by the client.");
+    }
+
+    //
   }
 
   private _consumeHeaders(n: number) {
@@ -182,9 +213,9 @@ class WebSocketReceiver {
       // 一時的なバッファを作成
       const infoBuffer = this._buffersArray[0];
       // 消費したバッファを削除
-      this._buffersArray[0] = this._buffersArray[0].slice(n);
+      this._buffersArray[0] = this._buffersArray[0].subarray(n);
       // 一時的なバッファを削除（nには2しか入らない想定）
-      return infoBuffer.slice(0, n);
+      return infoBuffer.subarray(0, n);
     } else {
       throw new Error(
         "You can not extract more data from a ws frame than the actual frame size."
