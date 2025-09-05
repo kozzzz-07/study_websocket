@@ -144,6 +144,9 @@ class WebSocketReceiver {
   private _opcode: number | undefined = undefined; // 受信データの種類
   private _masked = false; // 受信フレームがマスクされているかどうか
   private _initialPayloadSizeIndicator = 0; // 処理中のペイロードのサイズインジケーター
+  private _framePayloadLength = 0; // 受信した1つのWebsocketフレームの長さ
+  private _maxPayload = 1024 * 1024; // 1 megabyte (MiB) のサイズ
+  private _totalPayloadLength = 0;
 
   constructor(socket: stream.Duplex) {
     this._socket = socket;
@@ -156,12 +159,18 @@ class WebSocketReceiver {
   }
 
   _startTaskLoop() {
+    // 1. 受信したWSフレームから情報を取得する
+    // 2. WSフレームの正確なペイロードサイズを計算する
+
     this._taskLoop = true;
 
     do {
       switch (this._task) {
         case GET_INFO:
           this._getInfo();
+          break;
+        case GET_LENGTH:
+          this._getLength();
           break;
       }
     } while (this._taskLoop);
@@ -196,7 +205,7 @@ class WebSocketReceiver {
       throw new Error("Mask is not set by the client.");
     }
 
-    //
+    this._task = GET_LENGTH;
   }
 
   private _consumeHeaders(n: number) {
@@ -205,7 +214,8 @@ class WebSocketReceiver {
 
     // 抽出したサイズが実際のバッファと同じ場合は、バッファ全体を返す
     if (n === this._buffersArray[0].length) {
-      return this._buffersArray.shift();
+      // undefinedを返す可能性がないためasを使用
+      return this._buffersArray.shift() as Buffer;
     }
 
     // 抽出したサイズがバッファ内のデータサイズより小さい場合
@@ -221,5 +231,83 @@ class WebSocketReceiver {
         "You can not extract more data from a ws frame than the actual frame size."
       );
     }
+  }
+
+  private _getLength() {
+    // WSメッセージ（フラグメント）の実際のペイロード長を抽出する処理。ペイロードサイズは、大中小の３段階ある。
+    // https://tex2e.github.io/rfc-translater/html/rfc6455.html#4-1--Client-Requirements:~:text=Payload%20length%3A%20%207%20bits%2C%207%2B16%20bits%2C%20or%207%2B64%20bits
+    // small: Payload lenが0-125の時はそのままのサイズがペイロードサイズ。7ビットの「Payload len」をそのまま使える
+    /**
+        1           
+      9 0 1 2 3 4 5 
+      +-------------+
+      | Payload len |
+      |     (7)     |
+      |             |
+      |             |
+      +-------------+
+    */
+    // medium: Payload lenが126の時は、126-65535バイトまで。次の2バイト「Extended payload length」まで読み込む必要がある。
+    /**
+      1                   2                   3
+    9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-------------+-------------------------------+
+    | Payload len |    Extended payload length    |
+    |     (7)     |             (16/64)           |
+    |             |   (if payload len==126/127)   |
+    |             |                               |
+    +-------------+ - - - - - - - - - - - - - - - +
+    */
+    // large: Payload lenが127の時。65535バイトより大きいサイズ。その後の8バイトまで読み込む必要がある。
+    /**
+      0                   1                   2                   3
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     +-+-+-+-+-------+-+-------------+-------------------------------+
+     |F|R|R|R| opcode|M| Payload len |    Extended payload length    |
+     |I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |
+     |N|V|V|V|       |S|             |   (if payload len==126/127)   |
+     | |1|2|3|       |K|             |                               |
+     +-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
+     |     Extended payload length continued, if payload len == 127  |
+     + - - - - - - - - - - - - - - - +-------------------------------+
+     |                               |
+     +-------------------------------+
+    */
+
+    switch (this._initialPayloadSizeIndicator) {
+      case CONSTANTS.MEDIUM_DATA_FLAG:
+        const mediumPayloadLengthBuffer = this._consumeHeaders(
+          CONSTANTS.MEDIUM_SIZE_CONSUMPTIONS
+        );
+        this._framePayloadLength = mediumPayloadLengthBuffer?.readUint16BE();
+        this._processLength();
+        break;
+
+      case CONSTANTS.LARGE_DATA_FLAG:
+        const largePayloadLengthBuffer = this._consumeHeaders(
+          CONSTANTS.LARGE_SIZE_CONSUMPTIONS
+        );
+        // 8バイトのペイロードは、JSのnumberでは安全に扱える範囲を超えるためBigintで取得する。
+        const bufBigInt = largePayloadLengthBuffer.readBigUInt64BE();
+        this._framePayloadLength = Number(bufBigInt);
+        this._processLength();
+        break;
+      default:
+        // 125バイト以下の場合は、そのままペイロード長になる
+        this._framePayloadLength = this._initialPayloadSizeIndicator;
+        this._processLength();
+        break;
+    }
+  }
+
+  _processLength() {
+    this._totalPayloadLength += this._framePayloadLength;
+    // ユーザーがWSサーバーを悪用しようとした場合
+    if (this._totalPayloadLength > this._maxPayload) {
+      // TODO: エラーではなく、クローズフレームを返すようにする
+      throw new Error("Data is too large");
+    }
+
+    // データをアンマスクする
   }
 }

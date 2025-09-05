@@ -25,3 +25,9 @@ export const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 // WebSocket ルール
 export const MIN_FRAME_SIZE = 2; // 2バイト
+
+// WebSocket Payload関連
+export const MEDIUM_DATA_FLAG = 126; // WSフレーム内のペイロードヘッダー。バイナリが11111110、または10進数で126の場合、次の2バイトが実際のペイロード長を表す
+export const LARGE_DATA_FLAG = 127; //  WSフレーム内のペイロードヘッダー。バイナリが11111111、または10進数で127の場合、次の8バイトが実際のペイロード長を表す
+export const MEDIUM_SIZE_CONSUMPTIONS = 2;
+export const LARGE_SIZE_CONSUMPTIONS = 8;
