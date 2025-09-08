@@ -145,8 +145,9 @@ class WebSocketReceiver {
   private _masked = false; // 受信フレームがマスクされているかどうか
   private _initialPayloadSizeIndicator = 0; // 処理中のペイロードのサイズインジケーター
   private _framePayloadLength = 0; // 受信した1つのWebsocketフレームの長さ
-  private _maxPayload = 1024 * 1024; // 1 megabyte (MiB) のサイズ
+  private _maxPayload = 1024 * 1024; // クライアントが送信できるデータ量の上限。 1 megabyte (MiB) のサイズ
   private _totalPayloadLength = 0;
+  private _mask: Buffer = Buffer.alloc(CONSTANTS.MASK_LENGTH); // クライアントによって設定され送信されたマスキングキーを保持する
 
   constructor(socket: stream.Duplex) {
     this._socket = socket;
@@ -161,6 +162,7 @@ class WebSocketReceiver {
   _startTaskLoop() {
     // 1. 受信したWSフレームから情報を取得する
     // 2. WSフレームの正確なペイロードサイズを計算する
+    // 3. ペイロードのマスクをアンマスクする
 
     this._taskLoop = true;
 
@@ -171,6 +173,9 @@ class WebSocketReceiver {
           break;
         case GET_LENGTH:
           this._getLength();
+          break;
+        case GET_MASK_KEY:
+          this._getMaskKey();
           break;
       }
     } while (this._taskLoop);
@@ -302,12 +307,17 @@ class WebSocketReceiver {
 
   _processLength() {
     this._totalPayloadLength += this._framePayloadLength;
-    // ユーザーがWSサーバーを悪用しようとした場合
+    // クライアントがWSサーバーを悪用しようとした場合
     if (this._totalPayloadLength > this._maxPayload) {
       // TODO: エラーではなく、クローズフレームを返すようにする
       throw new Error("Data is too large");
     }
 
-    // データをアンマスクする
+    this._task = GET_MASK_KEY;
+  }
+
+  _getMaskKey() {
+    this._mask = this._consumeHeaders(CONSTANTS.MASK_LENGTH);
+    this._task = GET_PAYLOAD;
   }
 }

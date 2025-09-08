@@ -25,6 +25,7 @@ export const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 // WebSocket ルール
 export const MIN_FRAME_SIZE = 2; // 2バイト
+export const MASK_LENGTH = 4;
 
 // WebSocket Payload関連
 export const MEDIUM_DATA_FLAG = 126; // WSフレーム内のペイロードヘッダー。バイナリが11111110、または10進数で126の場合、次の2バイトが実際のペイロード長を表す
