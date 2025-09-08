@@ -148,6 +148,7 @@ class WebSocketReceiver {
   private _maxPayload = 1024 * 1024; // クライアントが送信できるデータ量の上限。 1 megabyte (MiB) のサイズ
   private _totalPayloadLength = 0;
   private _mask: Buffer = Buffer.alloc(CONSTANTS.MASK_LENGTH); // クライアントによって設定され送信されたマスキングキーを保持する
+  private _framesReceived = 0; // Websocketメッセージに関連して受信されたフレームの総数
 
   constructor(socket: stream.Duplex) {
     this._socket = socket;
@@ -162,7 +163,7 @@ class WebSocketReceiver {
   _startTaskLoop() {
     // 1. 受信したWSフレームから情報を取得する
     // 2. WSフレームの正確なペイロードサイズを計算する
-    // 3. ペイロードのマスクをアンマスクする
+    // 3. ペイロードのマスクをアンマスクする （ペイロード全体が受信できるまではしない)
 
     this._taskLoop = true;
 
@@ -176,6 +177,9 @@ class WebSocketReceiver {
           break;
         case GET_MASK_KEY:
           this._getMaskKey();
+          break;
+        case GET_PAYLOAD:
+          this._getPayload();
           break;
       }
     } while (this._taskLoop);
@@ -317,7 +321,73 @@ class WebSocketReceiver {
   }
 
   _getMaskKey() {
+    /**
+      0                   1                   2                   3
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     + - - - - - - - - - - - - - - - +-------------------------------+
+     |                               |Masking-key, if MASK set to 1  |
+     +-------------------------------+-------------------------------+
+     | Masking-key (continued)       |        
+     +-------------------------------- 
+    */
     this._mask = this._consumeHeaders(CONSTANTS.MASK_LENGTH);
     this._task = GET_PAYLOAD;
+  }
+
+  _getPayload() {
+    /**
+      0                   1                   2                   3
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     +-------------------------------+-------------------------------+
+     |                               |          Payload Data         |
+     +-------------------------------- - - - - - - - - - - - - - - - +
+     :                     Payload Data continued ...                :
+     + - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +
+     |                     Payload Data continued ...                |
+     +---------------------------------------------------------------+
+    */
+
+    // フルフレームペイロード用ループ
+    // まだペイロード全体を受信していない場合は、ソケットオブジェクト上で新しい"data"イベントが発生するのを待ち、さらにデータを受信する
+    if (this._bufferedBytesLength < this._framePayloadLength) {
+      this._taskLoop = false;
+      return;
+    }
+
+    // フルフレーム受信（フラグメント化されたメッセージがある場合はさらにフレームがある場合がある）
+    this._framesReceived++;
+
+    // WSフレームペイロード全体を消費する
+    const fullMaskedPayloadBuffer = this._consumePayload(
+      this._framePayloadLength
+    );
+  }
+
+  _consumePayload(n: number) {
+    // バッファのバイト長を、消費するバイト数分だけ減らす
+    this._bufferedBytesLength -= n;
+
+    // データを格納するための新しいバッファを作成
+    const payloadBuffer = Buffer.alloc(n);
+    // payloadBufferに読み込まれたバイト数を追跡
+    let totalBytesRead = 0;
+
+    // このループは、全ての"n"バイトがpayloadBufferに読み込まれるまでデータを読み込みづづける
+    while (totalBytesRead < 0) {
+      const buf = this._buffersArray[0]; // チャンク配列から最初のデータを取得
+      const bytesToRead = Math.min(n - totalBytesRead, buf.length); // 必要なバイト数を計算（残りの必要バイト数と現在のチャンクの長さを比較。小さい方を選ぶことで、バッファサイズを超えて読むことを回避）
+      buf.copy(payloadBuffer, totalBytesRead, 0, bytesToRead); // payloadBufferにバイトを読み込む
+
+      // _buffersArrayを更新する。（最初の要素を部分的に更新するか完全に削除）
+      if (bytesToRead < this._buffersArray[0].length) {
+        this._buffersArray[0] = buf.subarray(bytesToRead); // 最初の要素の一部を削除
+      } else {
+        this._buffersArray.shift(); // 最初の要素を削除
+      }
+
+      totalBytesRead += bytesToRead; // 読み込んだバイト数を更新
+    }
+
+    return payloadBuffer;
   }
 }
