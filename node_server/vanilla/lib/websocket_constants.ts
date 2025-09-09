@@ -32,3 +32,10 @@ export const MEDIUM_DATA_FLAG = 126; // WSフレーム内のペイロードヘ�
 export const LARGE_DATA_FLAG = 127; //  WSフレーム内のペイロードヘッダー。バイナリが11111111、または10進数で127の場合、次の8バイトが実際のペイロード長を表す
 export const MEDIUM_SIZE_CONSUMPTIONS = 2;
 export const LARGE_SIZE_CONSUMPTIONS = 8;
+
+// WebSocket Opcode
+export const OPCODE_TEXT = 0x01; // text frame
+export const OPCODE_BINARY = 0x02; // binary frame
+export const OPCODE_CLOSE = 0x08; // closure frame
+export const OPCODE_PING = 0x09;
+export const OPCODE_PONG = 0x0a;

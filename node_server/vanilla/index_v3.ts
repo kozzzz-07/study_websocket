@@ -158,6 +158,7 @@ class WebSocketReceiver {
   processBuffer(chunk: Buffer) {
     this._buffersArray.push(chunk);
     this._bufferedBytesLength += chunk.length;
+    console.log("chunk received of size:" + chunk.length);
     this._startTaskLoop();
   }
 
@@ -200,8 +201,9 @@ class WebSocketReceiver {
      +-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
     */
 
-    // データが足りない場合は、一旦停止してデータを待つ
+    // 少なくともフレームヘッダー情報を処理するのに十分なバイトがあるかを確認
     if (this._bufferedBytesLength < CONSTANTS.MIN_FRAME_SIZE) {
+      // データが足りない場合は、一旦停止して追加のデータを待つ
       this._taskLoop = false;
       return;
     }
@@ -367,21 +369,40 @@ class WebSocketReceiver {
     this._framesReceived++;
 
     // WSフレームペイロード全体を消費する
-    const fullMaskedPayloadBuffer = this._consumePayload(
+    const frameMaskedPayloadBuffer = this._consumePayload(
       this._framePayloadLength
     );
 
     // ペイロードをアンマスクする
-    const fullUnmaskedPayloadBuffer = unmaskedPayload(
-      fullMaskedPayloadBuffer,
+    const frameUnmaskedPayloadBuffer = unmaskedPayload(
+      frameMaskedPayloadBuffer,
       this._mask
     );
 
     // アンマスク済みデータを_fragmentsに格納
-    if (fullUnmaskedPayloadBuffer.length) {
-      this._fragments.push(fullUnmaskedPayloadBuffer);
+    if (frameUnmaskedPayloadBuffer.length) {
+      this._fragments.push(frameUnmaskedPayloadBuffer);
     }
 
+    // CLOSE FRAME
+    if (this._opcode === CONSTANTS.OPCODE_CLOSE) {
+      // TODO: あとで処理かく
+      throw new Error("Server has not dealt with a closure frame ... yet");
+    }
+
+    // OTHER FRAME
+    if (
+      [
+        CONSTANTS.OPCODE_BINARY,
+        CONSTANTS.OPCODE_PING,
+        CONSTANTS.OPCODE_PONG,
+      ].includes(this._opcode as number)
+    ) {
+      // TODO: あとで処理かく
+      throw new Error("Server has not dealt with a type frame ... yet");
+    }
+
+    // TEXT FRAME
     // 追加のフレームが必要かどうかを確認
     if (!this._fin) {
       // FINが0の場合は、さらにデータを待ち、FIN状態やOPCODEを確認する
