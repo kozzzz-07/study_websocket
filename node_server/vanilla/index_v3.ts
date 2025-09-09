@@ -10,6 +10,7 @@ import {
   checkWS,
   createUpgradeHeaders,
   isOriginAllowed,
+  unmaskedPayload,
 } from "./lib/websocket_methods.ts";
 
 const serverKey = fs.readFileSync("./vanilla/oreore_cert/cert.key");
@@ -361,6 +362,12 @@ class WebSocketReceiver {
     const fullMaskedPayloadBuffer = this._consumePayload(
       this._framePayloadLength
     );
+
+    // ペイロードをアンマスクする
+    const fullUnmaskedPayloadBuffer = unmaskedPayload(
+      fullMaskedPayloadBuffer,
+      this._mask
+    );
   }
 
   _consumePayload(n: number) {
@@ -377,6 +384,7 @@ class WebSocketReceiver {
       const buf = this._buffersArray[0]; // チャンク配列から最初のデータを取得
       const bytesToRead = Math.min(n - totalBytesRead, buf.length); // 必要なバイト数を計算（残りの必要バイト数と現在のチャンクの長さを比較。小さい方を選ぶことで、バッファサイズを超えて読むことを回避）
       buf.copy(payloadBuffer, totalBytesRead, 0, bytesToRead); // payloadBufferにバイトを読み込む
+      totalBytesRead += bytesToRead; // 読み込んだバイト数を更新
 
       // _buffersArrayを更新する。（最初の要素を部分的に更新するか完全に削除）
       if (bytesToRead < this._buffersArray[0].length) {
@@ -384,8 +392,6 @@ class WebSocketReceiver {
       } else {
         this._buffersArray.shift(); // 最初の要素を削除
       }
-
-      totalBytesRead += bytesToRead; // 読み込んだバイト数を更新
     }
 
     return payloadBuffer;

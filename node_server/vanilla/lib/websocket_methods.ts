@@ -73,3 +73,13 @@ function generateServerKey(clientKey: string) {
   const serverKey = hash.digest("base64");
   return serverKey;
 }
+
+export function unmaskedPayload(payloadBuffer: Buffer, maskKey: Buffer) {
+  // マスクキーを利用してペイロードをアンマスクする
+  for (let i = 0; i < payloadBuffer.length; i++) {
+    // 1バイトずつループしてmaskKeyとXORする
+    // maskKeyは4バイトなので、5バイト以降はmaskKeyの先頭から繰り返し使う
+    payloadBuffer[i] = payloadBuffer[i] ^ maskKey[i % CONSTANTS.MASK_LENGTH];
+  }
+  return payloadBuffer;
+}
