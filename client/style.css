@@ -94,3 +94,9 @@ ul li span {
 .sent {
   background-color: whitesmoke;
 }
+
+button.populate {
+  background-color: magenta;
+  font-size: 0.7em;
+  float: right;
+}

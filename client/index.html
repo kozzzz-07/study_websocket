@@ -21,6 +21,7 @@
         ></textarea>
         <button type="submit">Send Message</button>
         <button id="close_ws" type="button">Close Connection</button>
+        <button type="button" id="populate" class="populate">Populate</button>
       </form>
     </div>
     <script>
@@ -30,6 +31,9 @@
       const socketStatus = document.getElementById("status");
       const table = document.getElementsByTagName("ul")[0];
       const message = document.getElementById("message");
+
+      // テスト用
+      const populateBtn = document.getElementById("populate");
 
       openWsBtn.addEventListener("click", () => {
         // 一回しかクリックできないようにするだけのコード
@@ -64,6 +68,13 @@
           socketStatus.className = socketStatus.className + " open";
           form.className = "show_form";
           console.log({ openEvent });
+
+          // テスト用
+          // 例；5000バイト（中規模）,150000(大規模)
+          const text = "A".repeat(150000);
+          populateBtn.addEventListener("click", () => {
+            message.value = text;
+          });
         };
 
         // RECEIVE
