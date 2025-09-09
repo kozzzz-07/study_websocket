@@ -150,7 +150,7 @@ class WebSocketReceiver {
   private _totalPayloadLength = 0;
   private _mask: Buffer = Buffer.alloc(CONSTANTS.MASK_LENGTH); // クライアントによって設定され送信されたマスキングキーを保持する
   private _framesReceived = 0; // Websocketメッセージに関連して受信されたフレームの総数
-
+  private _fragments: Buffer[] = []; // メッセージが複数のフレームに分割されてくる場合に連結する。全ての断片フレーム格納する
   constructor(socket: stream.Duplex) {
     this._socket = socket;
   }
@@ -164,7 +164,8 @@ class WebSocketReceiver {
   _startTaskLoop() {
     // 1. 受信したWSフレームから情報を取得する
     // 2. WSフレームの正確なペイロードサイズを計算する
-    // 3. ペイロードのマスクをアンマスクする （ペイロード全体が受信できるまではしない)
+    // 3. マスクキーの抽出
+    // 4. ペイロードのマスクをアンマスクする （ペイロード全体が受信できるまではしない)
 
     this._taskLoop = true;
 
@@ -198,6 +199,12 @@ class WebSocketReceiver {
      | |1|2|3|       |K|             |                               |
      +-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +
     */
+
+    // データが足りない場合は、一旦停止してデータを待つ
+    if (this._bufferedBytesLength < CONSTANTS.MIN_FRAME_SIZE) {
+      this._taskLoop = false;
+      return;
+    }
 
     const infoBuffer = this._consumeHeaders(CONSTANTS.MIN_FRAME_SIZE);
     const firstByte = infoBuffer[0];
@@ -351,6 +358,7 @@ class WebSocketReceiver {
     // フルフレームペイロード用ループ
     // まだペイロード全体を受信していない場合は、ソケットオブジェクト上で新しい"data"イベントが発生するのを待ち、さらにデータを受信する
     if (this._bufferedBytesLength < this._framePayloadLength) {
+      // 取得し切るまで_buffersArrayにプッシュしながら_getPayloadを繰り返す
       this._taskLoop = false;
       return;
     }
@@ -368,6 +376,26 @@ class WebSocketReceiver {
       fullMaskedPayloadBuffer,
       this._mask
     );
+
+    // アンマスク済みデータを_fragmentsに格納
+    if (fullUnmaskedPayloadBuffer.length) {
+      this._fragments.push(fullUnmaskedPayloadBuffer);
+    }
+
+    // 追加のフレームが必要かどうかを確認
+    if (!this._fin) {
+      // FINが0の場合は、さらにデータを待ち、FIN状態やOPCODEを確認する
+      this._task = GET_INFO;
+    } else {
+      // FINが1の場合は、クライアントにデータを送信
+      console.log(
+        `TOTAL FRAMES RECEIVED IN THIS WS MESSAGE: ${this._framesReceived}`
+      );
+      console.log(
+        `TOTAL PAYLOAD SIZE OF THE WS MESSAGE: ${this._totalPayloadLength}`
+      );
+      this._task = SEND_ECHO;
+    }
   }
 
   _consumePayload(n: number) {
@@ -380,7 +408,7 @@ class WebSocketReceiver {
     let totalBytesRead = 0;
 
     // このループは、全ての"n"バイトがpayloadBufferに読み込まれるまでデータを読み込みづづける
-    while (totalBytesRead < 0) {
+    while (totalBytesRead < n) {
       const buf = this._buffersArray[0]; // チャンク配列から最初のデータを取得
       const bytesToRead = Math.min(n - totalBytesRead, buf.length); // 必要なバイト数を計算（残りの必要バイト数と現在のチャンクの長さを比較。小さい方を選ぶことで、バッファサイズを超えて読むことを回避）
       buf.copy(payloadBuffer, totalBytesRead, 0, bytesToRead); // payloadBufferにバイトを読み込む
