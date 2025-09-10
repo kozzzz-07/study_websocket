@@ -477,5 +477,62 @@ class WebSocketReceiver {
     const frame = Buffer.alloc(
       CONSTANTS.MIN_FRAME_SIZE + additionalPayloadSizeIndicator + payloadLength
     );
+
+    // 2. フレームにヘッダー情報を格納する
+    // 1フレーム（バイト）目
+    /**
+      0 1 2 3 4 5 6 7 
+     +-+-+-+-+-------+
+     |F|R|R|R| opcode|
+     |I|S|S|S|  (4)  |
+     |N|V|V|V|       |
+     | |1|2|3|       |
+     +-+-+-+-+-------+
+    */
+    const fin = 0x01; // 0b00000001
+    const rsv1 = 0x00;
+    const rsv2 = 0x00;
+    const rsv3 = 0x00;
+    const opcode = CONSTANTS.OPCODE_TEXT;
+    // ビット単位のシフト演算子で、正しい位置にシフトさせる
+    // 例：fin << 7 の場合 00000001 -> 10000000
+    // OR演算子
+    // 10000000 (fin)
+    // 00000000 (rsv)
+    // 00000001 (opcode)
+    // --------
+    // 10000001
+    const firstByte =
+      (fin << 7) | (rsv1 << 6) | (rsv2 << 5) | (rsv3 << 4) | opcode;
+    frame[0] = firstByte; // FIN + RSV + OPCODE
+
+    // 2フレーム（バイト）目 + Extended payload length
+    // ペイロード長を格納する
+    /**
+      8 9 0 1 2 3 4 5 
+     +-+-------------+
+     |M| Payload len |
+     |A|     (7)     |
+     |S|             |
+     |K|             |
+     +-+-------------+
+    */
+
+    // マスキングビットはサーバーからクライアントの場合は0
+    const maskingBit = 0x00;
+    if (payloadLength <= CONSTANTS.SMALL_DATA_SIZE) {
+      // mask + payload lenを設定
+      frame[1] = maskingBit | payloadLength;
+    } else if (payloadLength <= CONSTANTS.MEDIUM_DATA_SIZE) {
+      // mask + payload lenを設定
+      frame[1] = maskingBit | CONSTANTS.MEDIUM_DATA_FLAG; // 0b01111110
+      // 2バイト目以降にペイロードのサイズを書き込む
+      frame.writeUInt16BE(payloadLength, CONSTANTS.MIN_FRAME_SIZE);
+    } else {
+      // mask + payload lenを設定
+      frame[1] = maskingBit | CONSTANTS.LARGE_DATA_FLAG; // 0b01111111
+      // 2バイト目以降にペイロードのサイズを書き込む
+      frame.writeBigUInt64BE(BigInt(payloadLength), CONSTANTS.MIN_FRAME_SIZE);
+    }
   }
 }
