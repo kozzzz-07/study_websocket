@@ -184,6 +184,9 @@ class WebSocketReceiver {
         case GET_PAYLOAD:
           this._getPayload();
           break;
+        case SEND_ECHO:
+          this._sendEcho();
+          break;
       }
     } while (this._taskLoop);
   }
@@ -444,5 +447,35 @@ class WebSocketReceiver {
     }
 
     return payloadBuffer;
+  }
+
+  _sendEcho() {
+    // 1. 正しいサイズの空フレームを作成する
+    // フラグメント配列（複数フレームの可能性あり）からメッセージ全体を含む1つのバッファを作成
+    const fullMessage = Buffer.concat(this._fragments); // Websocketフレームの実際のペイロード
+
+    // ペイロードの長さ
+    const payloadLength = fullMessage.length;
+    // 追加のペイロードサイズインジケーター変数
+    let additionalPayloadSizeIndicator: 0 | 2 | 8 | undefined = undefined;
+
+    // 条件の詳細は_getLength()のコメントを参考
+    switch (true) {
+      case payloadLength <= CONSTANTS.SMALL_DATA_SIZE:
+        additionalPayloadSizeIndicator = 0; // ペイロードサイズ情報は7ビット(最初の2バイトの情報のみで良いので追加ヘッダーなし)
+        break;
+      case payloadLength > CONSTANTS.SMALL_DATA_SIZE &&
+        payloadLength <= CONSTANTS.MEDIUM_DATA_SIZE:
+        additionalPayloadSizeIndicator = CONSTANTS.MEDIUM_SIZE_CONSUMPTIONS; // 追加ヘッダー2バイト
+        break;
+      default:
+        additionalPayloadSizeIndicator = CONSTANTS.LARGE_SIZE_CONSUMPTIONS; // 追加ヘッダー8バイト
+        break;
+    }
+
+    // 空フレーム作成
+    const frame = Buffer.alloc(
+      CONSTANTS.MIN_FRAME_SIZE + additionalPayloadSizeIndicator + payloadLength
+    );
   }
 }
