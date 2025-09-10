@@ -494,15 +494,19 @@ class WebSocketReceiver {
     const rsv1 = 0x00;
     const rsv2 = 0x00;
     const rsv3 = 0x00;
-    const opcode = CONSTANTS.OPCODE_TEXT;
+    // const opcode = CONSTANTS.OPCODE_TEXT; // テキストでクライアントに返す場合
+    // テキストの場合、受信側はUTF-8の検証が必要になり、無効なデータが含まれていた場合は、プロトコルエラーとして接続を閉じる必要がある
+    // それに対して、バイナリなら任意の生データを運ばせることができる。検証も不要。
+    // 受信側はバイト列として処理して、エンコーディングのチェック不要。テキスト、画像、ファイル、その他なんでも良い。つまり、検証のためのオーバヘッドがない。
+    const opcode = CONSTANTS.OPCODE_BINARY;
     // ビット単位のシフト演算子で、正しい位置にシフトさせる
     // 例：fin << 7 の場合 00000001 -> 10000000
     // OR演算子
     // 10000000 (fin)
     // 00000000 (rsv)
-    // 00000001 (opcode)
+    // 00000010 (opcode)
     // --------
-    // 10000001
+    // 10000010
     const firstByte =
       (fin << 7) | (rsv1 << 6) | (rsv2 << 5) | (rsv3 << 4) | opcode;
     frame[0] = firstByte; // FIN + RSV + OPCODE

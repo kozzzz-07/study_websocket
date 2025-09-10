@@ -78,11 +78,22 @@
         };
 
         // RECEIVE
-        socket.onmessage = (message) => {
+        socket.onmessage = (messageEvent) => {
           // クライアントがサーバーからメッセージを受け取った場合に発火する
           // プロパティ data: 文字列、Blob、ArrayBufferのいずれか origin:メッセージ送信元
-          const msg = message.data;
-          table.innerHTML += "<li><span>Received:</span>" + msg + "</li>";
+          if (messageEvent.data instanceof Blob) {
+            const reader = new FileReader();
+            reader.readAsText(messageEvent.data);
+            reader.onload = function (e) {
+              const msg = e.target.result;
+              table.innerHTML += "<li><span>Received:</span>" + msg + "</li>";
+              message.placeholder = `(Previous message size: ${msg.length})`;
+            };
+          } else {
+            const msg = messageEvent.data;
+            table.innerHTML += "<li><span>Received:</span>" + msg + "</li>";
+            message.placeholder = `(Previous message size: ${msg.length})`;
+          }
         };
 
         // CLOSE
