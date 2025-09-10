@@ -151,6 +151,7 @@ class WebSocketReceiver {
   private _mask: Buffer = Buffer.alloc(CONSTANTS.MASK_LENGTH); // クライアントによって設定され送信されたマスキングキーを保持する
   private _framesReceived = 0; // Websocketメッセージに関連して受信されたフレームの総数
   private _fragments: Buffer[] = []; // メッセージが複数のフレームに分割されてくる場合に連結する。全ての断片フレーム格納する
+
   constructor(socket: stream.Duplex) {
     this._socket = socket;
   }
@@ -534,5 +535,35 @@ class WebSocketReceiver {
       // 2バイト目以降にペイロードのサイズを書き込む
       frame.writeBigUInt64BE(BigInt(payloadLength), CONSTANTS.MIN_FRAME_SIZE);
     }
+
+    // 3. ペイロードをフレームに追加する
+    // メッセージをフレームバッファにコピーする
+    const messageStartOffset =
+      CONSTANTS.MIN_FRAME_SIZE + additionalPayloadSizeIndicator;
+    fullMessage.copy(frame, messageStartOffset);
+
+    // フレームをクライアントに送信し、全ての値をリセット
+    // writeの引数はバッファのみ
+    this._socket.write(frame);
+    this._taskLoop = false;
+    this._task = GET_INFO;
+
+    this._reset();
+  }
+
+  _reset() {
+    this._buffersArray = []; // 受信したデータのチャンクを格納する配列
+    this._bufferedBytesLength = 0; // 受信した各チャンク後のカスタムバッファ内の総バイト数を追跡する
+    this._taskLoop = false;
+    this._task = GET_INFO;
+    this._fin = false; // メッセージの最後のフラグメントが受信したかどうか
+    this._opcode = undefined; // 受信データの種類
+    this._masked = false; // 受信フレームがマスクされているかどうか
+    this._initialPayloadSizeIndicator = 0; // 処理中のペイロードのサイズインジケーター
+    this._framePayloadLength = 0; // 受信した1つのWebsocketフレームの長さ
+    this._totalPayloadLength = 0;
+    this._mask = Buffer.alloc(CONSTANTS.MASK_LENGTH); // クライアントによって設定され送信されたマスキングキーを保持する
+    this._framesReceived = 0; // Websocketメッセージに関連して受信されたフレームの総数
+    this._fragments = []; // メッセージが複数のフレームに分割されてくる場合に連結する。全ての断片フレーム格納する
   }
 }
