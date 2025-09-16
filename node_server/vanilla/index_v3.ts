@@ -26,6 +26,8 @@ const GET_MASK_KEY = 3; // Masking-key
 const GET_PAYLOAD = 4; // Payload Data 以降
 // プログラム固有のフラグ
 const SEND_ECHO = 5;
+//
+const GET_CLOSE_INFO = 6;
 
 const https_server = https.createServer(
   { key: serverKey, cert: serverCert },
@@ -187,6 +189,9 @@ class WebSocketReceiver {
           break;
         case SEND_ECHO:
           this._sendEcho();
+          break;
+        case GET_CLOSE_INFO:
+          this._getCloseInfo();
           break;
       }
     } while (this._taskLoop);
@@ -388,10 +393,10 @@ class WebSocketReceiver {
       this._fragments.push(frameUnmaskedPayloadBuffer);
     }
 
-    // CLOSE FRAME
+    // CLOSE FRAME WITH A PAYLOAD
     if (this._opcode === CONSTANTS.OPCODE_CLOSE) {
-      // TODO: あとで処理かく
-      throw new Error("Server has not dealt with a closure frame ... yet");
+      this._task = GET_CLOSE_INFO;
+      return;
     }
 
     // OTHER FRAME
@@ -569,5 +574,71 @@ class WebSocketReceiver {
     this._mask = Buffer.alloc(CONSTANTS.MASK_LENGTH); // クライアントによって設定され送信されたマスキングキーを保持する
     this._framesReceived = 0; // Websocketメッセージに関連して受信されたフレームの総数
     this._fragments = []; // メッセージが複数のフレームに分割されてくる場合に連結する。全ての断片フレーム格納する
+  }
+
+  _getCloseInfo() {
+    // 1. クローズフレームの抽出
+    // クローズフレームの構造について
+    // opcodeは8
+    // ボディ自体は含むかどうかは任意
+    // ただし、ボディが含まれる場合は必須と任意の2つの情報がある
+    // 必須：ステータスコード。2バイトである必要がある
+    // 任意：reasonコード（理由）。上限123バイトまで
+
+    // コントロールフレームは分割できないため、_fragments配列内には1つのフラグメントが存在し、クローズフレームのデータ全体が含まれている
+    const closeFramePayload = this._fragments[0];
+
+    // フレームペイロードが存在しない（ボディがない）場合、クローズフレームを送信して終了
+    if (!closeFramePayload) {
+      // 1008はサーバーポリシー違反
+      this.sendClose(1008, "Next time, please set the status code.");
+      return;
+    }
+
+    // ペイロードの最初の2バイトからクローズコードを取得
+    const closeCode = closeFramePayload.readUInt16BE();
+    // 残りのバイトをUTF-8文字列として読み取り、クローズする理由を抽出
+    const closeReason = closeFramePayload.toString("utf-8", 2); // 2バイト目から読む
+    console.log(
+      `Received close frame with code: ${closeCode} and reason: ${closeReason}`
+    );
+    const serverResponse = "Sorry to see you go. Please open a new connection.";
+    this.sendClose(closeCode, serverResponse);
+  }
+
+  sendClose(closeCode: number, closeReason: string) {
+    const closureCode = closeCode == null ? 1000 : closeCode;
+    const closureReason = closeReason || "";
+
+    // 理由のバイナリの長さ取得する。closureReasonは文字列なのでバッファに変換してから取得する
+    // 因みに、str.lengthの場合UTF-16での取得
+    const closureReasonBuffer = Buffer.from(closureReason, "utf-8");
+    const closureReasonLength = closureReasonBuffer.length;
+
+    // クローズフレームのペイロードのバッファ領域確保
+    const closeFramePayload = Buffer.alloc(2 + closureReasonLength);
+    // 先頭にクローズステータスコード
+    closeFramePayload.writeInt16BE(closureCode, 0);
+    // 2バイト目から理由をコピー
+    closureReasonBuffer.copy(closeFramePayload, 2);
+
+    // 最初のバイトと二番目のバイトを作成し、クライアントに送り返す最終フレームを作成する
+    // FINビット(1) | RSV(0) | opcode(8)
+    const firstByte = 0b10000000 | 0b00000000 | 0b00001000;
+    // ペイロード長
+    const secondByte = closeFramePayload.length;
+    const mandatoryCloseHeaders = Buffer.from([firstByte, secondByte]);
+
+    // 最終的なクローズフレームを作成
+    const closeFrame = Buffer.concat([
+      mandatoryCloseHeaders,
+      closeFramePayload,
+    ]);
+
+    // クローズフレームの送信
+    this._socket.write(closeFrame);
+    this._socket.end();
+    // 受信側のプロパティリセット
+    this._reset();
   }
 }
