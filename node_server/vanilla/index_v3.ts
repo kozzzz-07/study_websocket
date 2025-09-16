@@ -229,8 +229,20 @@ class WebSocketReceiver {
 
     // クライアントから送信されるデータは必ずマスクされている必要がある
     if (!this._masked) {
-      // TODO: エラーではなく、クローズフレームを返すようにする
-      throw new Error("Mask is not set by the client.");
+      this._sendClose(1002, "MASK must be set.");
+      return;
+    }
+
+    // PING AND PONG FRAME
+    if (
+      [CONSTANTS.OPCODE_PING, CONSTANTS.OPCODE_PONG].includes(
+        this._opcode as number
+      )
+    ) {
+      // ping pongフレームは未実装。ここでは、サポートしていないデータとしている。
+      // クローズフレームを送信してWSを閉じる
+      this._sendClose(1003, "The server dose not accept ping or pong frames.");
+      return;
     }
 
     this._task = GET_LENGTH;
@@ -332,8 +344,11 @@ class WebSocketReceiver {
     this._totalPayloadLength += this._framePayloadLength;
     // クライアントがWSサーバーを悪用しようとした場合
     if (this._totalPayloadLength > this._maxPayload) {
-      // TODO: エラーではなく、クローズフレームを返すようにする
-      throw new Error("Data is too large");
+      this._sendClose(
+        1009,
+        "The WS server dose not support such huge message lengths."
+      );
+      return;
     }
 
     this._task = GET_MASK_KEY;
@@ -399,19 +414,12 @@ class WebSocketReceiver {
       return;
     }
 
-    // OTHER FRAME
-    if (
-      [
-        CONSTANTS.OPCODE_BINARY,
-        CONSTANTS.OPCODE_PING,
-        CONSTANTS.OPCODE_PONG,
-      ].includes(this._opcode as number)
-    ) {
-      // TODO: あとで処理かく
-      throw new Error("Server has not dealt with a type frame ... yet");
+    if (this._framePayloadLength <= 0) {
+      this._sendClose(1008, "The text area can't be empty.");
+      return;
     }
 
-    // TEXT FRAME
+    // TEXT FRAME & BINARY FRAME
     // 追加のフレームが必要かどうかを確認
     if (!this._fin) {
       // FINが0の場合は、さらにデータを待ち、FIN状態やOPCODEを確認する
@@ -591,7 +599,7 @@ class WebSocketReceiver {
     // フレームペイロードが存在しない（ボディがない）場合、クローズフレームを送信して終了
     if (!closeFramePayload) {
       // 1008はサーバーポリシー違反
-      this.sendClose(1008, "Next time, please set the status code.");
+      this._sendClose(1008, "Next time, please set the status code.");
       return;
     }
 
@@ -602,11 +610,19 @@ class WebSocketReceiver {
     console.log(
       `Received close frame with code: ${closeCode} and reason: ${closeReason}`
     );
+
+    // ブラウザのリロード
+    if (closeCode === 1001) {
+      this._socket.end();
+      this._reset();
+      return;
+    }
+
     const serverResponse = "Sorry to see you go. Please open a new connection.";
-    this.sendClose(closeCode, serverResponse);
+    this._sendClose(closeCode, serverResponse);
   }
 
-  sendClose(closeCode: number, closeReason: string) {
+  _sendClose(closeCode: number, closeReason: string) {
     const closureCode = closeCode == null ? 1000 : closeCode;
     const closureReason = closeReason || "";
 
@@ -637,7 +653,7 @@ class WebSocketReceiver {
 
     // クローズフレームの送信
     this._socket.write(closeFrame);
-    this._socket.end();
+    this._socket.destroy(); // RFCに従って、TCO接続を終わらせる
     // 受信側のプロパティリセット
     this._reset();
   }

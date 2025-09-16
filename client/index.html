@@ -11,6 +11,7 @@
       <h1>WebSockets Echo Demo</h1>
       <button type="submit" id="open_ws">Open WS</button>
       <div id="status" class="status">Status: Not connected</div>
+      <div id="server_response"></div>
       <ul id="table"></ul>
       <form id="form" class="form">
         <textarea
@@ -29,6 +30,7 @@
       const closeWsBtn = document.getElementById("close_ws");
       const form = document.getElementById("form");
       const socketStatus = document.getElementById("status");
+      const serverResponse = document.getElementById("server_response");
       const table = document.getElementsByTagName("ul")[0];
       const message = document.getElementById("message");
 
@@ -67,6 +69,8 @@
           socketStatus.innerHTML = `Connected to: ${openEvent.currentTarget.url}`;
           socketStatus.className = socketStatus.className + " open";
           form.className = "show_form";
+          table.innerHTML = "";
+          serverResponse.innerHTML = "";
           console.log({ openEvent });
 
           // テスト用
@@ -108,6 +112,20 @@
           form.className = "form closed";
 
           switch (closeEvent.code) {
+            case 1001:
+              socketStatus.innerHTML = `Disconnected: ${closeEvent.reason}`;
+              table.innerHTML = "";
+              break;
+            case 1002:
+              socketStatus.innerHTML = `Disconnected: ${closeEvent.reason}`;
+              table.innerHTML = "";
+              serverResponse.innerHTML = `The server responded: ${closeEvent.reason}`;
+              break;
+            case 1003:
+              socketStatus.innerHTML = `Unsupported data type.`;
+              table.innerHTML = "";
+              serverResponse.innerHTML = `The server responded: ${closeEvent.reason}`;
+              break;
             case 1006:
               // サーバーへ接続失敗
               socketStatus.innerHTML = "No go my friend";
@@ -116,17 +134,24 @@
                 "Something is wrong with your connection" +
                 "</li>";
               break;
-
-            case 1001:
-              socketStatus.innerHTML = `Disconnected: ${closeEvent.reason}`;
+            case 1008:
+              socketStatus.innerHTML = `You violated server policy.`;
               table.innerHTML = "";
+              serverResponse.innerHTML = `The server responded: ${closeEvent.reason}`;
               break;
+            case 1009:
+              socketStatus.innerHTML = `Data too long.`;
+              table.innerHTML = "";
+              serverResponse.innerHTML = `The server responded: ${closeEvent.reason}`;
+              break;
+
             default:
               socketStatus.innerHTML = "You disconnected from WebSockets.";
               table.innerHTML +=
                 '<li class="received, closed"><span>CLOSED:</span>' +
                 "YOU CLOSED THE CONNECTION" +
                 "</li>";
+              serverResponse.innerHTML = `The server responded: ${closeEvent.reason}`;
               break;
           }
 
@@ -169,6 +194,7 @@
         closeWsBtn.addEventListener("click", () => {
           // socket.close();
           // サーバー側に理由を送ることも可能
+          // クライアントから閉じるときはステータスコードが必須
           socket.close(1000, "I don't like you");
 
           console.log(`SOCKET CONNECTING STATUS IS: ${socket.readyState}`); // 2
